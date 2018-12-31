@@ -266,7 +266,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
             ContentResolver resolver = mContext.getContentResolver();
 
             mAutoColor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_AUTO_COLOR, 0,
+                    resolver, Settings.System.PULSE_AUTO_COLOR, 1,
                     UserHandle.USER_CURRENT) == 1;
 
             mLavaLampEnabled = !mAutoColor && Settings.System.getIntForUser(resolver,
@@ -291,12 +291,12 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
             }
             // putFloat, getFloat is better. catch it next time
             mDbFuzzFactor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_SOLID_FUDGE_FACTOR, 5,
+                    resolver, Settings.System.PULSE_SOLID_FUDGE_FACTOR, 3,
                     UserHandle.USER_CURRENT);
 
             int oldUnits = mUnits;
             mUnits = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_SOLID_UNITS_COUNT, 64,
+                    resolver, Settings.System.PULSE_SOLID_UNITS_COUNT, 96,
                     UserHandle.USER_CURRENT);
             if (mUnits != oldUnits) {
                 mFFTPoints = new float[mUnits * 4];

@@ -244,7 +244,7 @@ public class FadingBlockRenderer extends Renderer implements ColorAnimator.Color
             final Resources res = mContext.getResources();
 
             mAutoColor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_AUTO_COLOR, 0,
+                    resolver, Settings.System.PULSE_AUTO_COLOR, 1,
                     UserHandle.USER_CURRENT) == 1;
 
             mLavaLampEnabled = !mAutoColor && Settings.System.getIntForUser(resolver,
