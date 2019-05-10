@@ -19,7 +19,7 @@
  * 
  */
 
-package com.android.systemui.pulse;
+package com.android.systemui.navigation.pulse;
 
 import android.animation.ValueAnimator;
 import android.graphics.Color;

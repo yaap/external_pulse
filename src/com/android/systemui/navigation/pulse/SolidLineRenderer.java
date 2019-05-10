@@ -20,11 +20,12 @@
  *
  */
 
-package com.android.systemui.pulse;
+package com.android.systemui.navigation.pulse;
 
 import android.animation.ValueAnimator;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -37,8 +38,8 @@ import android.os.UserHandle;
 import android.provider.Settings;
 
 import com.android.internal.util.NotificationColorUtil;
-import com.android.systemui.pulse.PulseController.PulseObserver;
-import com.android.systemui.utils.ColorAnimator;
+import com.android.systemui.R;
+import com.android.systemui.navigation.utils.ColorAnimator;
 
 public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAnimationListener {
     private Paint mPaint;
@@ -49,6 +50,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
     private int mColor;
     private int mAlbumColor = -1;
     private boolean mAutoColor;
+    private int mAccentColor;
 
     private byte rfk, ifk;
     private int dbValue;
@@ -59,6 +61,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
     private int mWidth, mHeight, mUnits;
 
     private boolean mIsValidStream;
+    private boolean mPulseAccentColorEnabled;
     private boolean mLavaLampEnabled;
     private boolean mSmoothingEnabled;
     private CMRendererObserver mObserver;
@@ -66,9 +69,9 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
 
     private PulseController mController;
 
-    public SolidLineRenderer(Context context, Handler handler, PulseObserver callback,
+    public SolidLineRenderer(Context context, Handler handler, PulseView view,
             PulseController controller) {
-        super(context, handler, callback);
+        super(context, handler, view);
         mController = controller;
         mColor = Color.TRANSPARENT;
         mLavaLamp = new ColorAnimator();
@@ -146,9 +149,9 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
 
     @Override
     public void onSizeChanged(int w, int h, int oldw, int oldh) {
-        if (mCallback.getWidth() > 0 && mCallback.getHeight() > 0) {
-            mWidth = mCallback.getWidth();
-            mHeight = mCallback.getHeight();
+        if (mView.getWidth() > 0 && mView.getHeight() > 0) {
+            mWidth = mView.getWidth();
+            mHeight = mView.getHeight();
             mVertical = mHeight > mWidth;
             loadValueAnimators();
             if (mVertical) {
@@ -164,7 +167,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
         mIsValidStream = isValid;
         if (isValid) {
             onSizeChanged(0, 0, 0, 0);
-            if (mLavaLampEnabled) {
+            if (mLavaLampEnabled && !mPulseAccentColorEnabled) {
                 mLavaLamp.start();
             }
         }
@@ -218,7 +221,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
 
     @Override
     public void onColorChanged(ColorAnimator colorAnimator, int color) {
-        mPaint.setColor(color);
+        mPaint.setColor(mPulseAccentColorEnabled ? mAccentColor : color);
     }
 
     @Override
@@ -227,7 +230,7 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
 
     @Override
     public void onStopAnimation(ColorAnimator colorAnimator, int lastColor) {
-        mPaint.setColor(mAutoColor && mAlbumColor != -1 ? mAlbumColor : mColor);
+        mPaint.setColor(mAutoColor && mAlbumColor != -1 ? mAlbumColor : (mPulseAccentColorEnabled ? mAccentColor : mColor));
     }
 
     private class CMRendererObserver extends ContentObserver {
@@ -239,26 +242,30 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
         void register() {
             ContentResolver resolver = mContext.getContentResolver();
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.FLING_PULSE_COLOR), false, this,
-                    UserHandle.USER_ALL);
-            resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.FLING_PULSE_LAVALAMP_ENABLED), false,
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_ACCENT_COLOR_ENABLED), false,
                     this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.PULSE_SOLID_FUDGE_FACTOR), false, this,
+                    Settings.Secure.getUriFor(Settings.Secure.FLING_PULSE_COLOR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.PULSE_LAVALAMP_SOLID_SPEED), false, this,
+                    Settings.Secure.getUriFor(Settings.Secure.FLING_PULSE_LAVALAMP_ENABLED), false,
+                    this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.PULSE_SOLID_UNITS_COUNT), false, this,
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_SOLID_FUDGE_FACTOR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.PULSE_SOLID_UNITS_OPACITY), false, this,
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_LAVALAMP_SOLID_SPEED), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
-                    Settings.System.getUriFor(Settings.System.PULSE_AUTO_COLOR), false, this,
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_SOLID_UNITS_COUNT), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_SOLID_UNITS_OPACITY), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(
+                    Settings.Secure.getUriFor(Settings.Secure.PULSE_AUTO_COLOR), false, this,
                     UserHandle.USER_ALL);
             resolver.registerContentObserver(
                     Settings.Secure.getUriFor(Settings.Secure.FLING_PULSE_SMOOTHING_ENABLED), false,
@@ -274,40 +281,49 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
         public void updateSettings() {
             ContentResolver resolver = mContext.getContentResolver();
 
-            mAutoColor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_AUTO_COLOR, 1,
+            mPulseAccentColorEnabled = Settings.Secure.getIntForUser(resolver,
+                    Settings.Secure.PULSE_ACCENT_COLOR_ENABLED, 0, UserHandle.USER_CURRENT) == 1;
+
+            mAutoColor = Settings.Secure.getIntForUser(
+                    resolver, Settings.Secure.PULSE_AUTO_COLOR, 0,
                     UserHandle.USER_CURRENT) == 1;
 
-            mLavaLampEnabled = !mAutoColor && Settings.System.getIntForUser(resolver,
-                    Settings.System.FLING_PULSE_LAVALAMP_ENABLED, 1, UserHandle.USER_CURRENT) == 1;
+            mLavaLampEnabled = !mAutoColor && Settings.Secure.getIntForUser(resolver,
+                    Settings.Secure.FLING_PULSE_LAVALAMP_ENABLED, 1, UserHandle.USER_CURRENT) == 1;
 
-            mColor = Settings.System.getIntForUser(resolver,
-                    Settings.System.FLING_PULSE_COLOR,
+            mColor = Settings.Secure.getIntForUser(resolver,
+                    Settings.Secure.FLING_PULSE_COLOR,
                     Color.WHITE,
                     UserHandle.USER_CURRENT);
-            if (!mLavaLampEnabled) {
+
+            mAccentColor = mContext.getResources().getColor(R.color.pulseAccentColor);
+            if (mPulseAccentColorEnabled) {
+                mPaint.setColor(mAccentColor);
+            }
+
+            if (!mLavaLampEnabled && !mPulseAccentColorEnabled) {
                 int lastColor = mController.getAlbumArtColor();
                 mPaint.setColor(mAutoColor && lastColor != -1 ? lastColor : mColor);
             }
-            int lavaLampSpeed = Settings.System.getIntForUser(resolver,
-                    Settings.System.PULSE_LAVALAMP_SOLID_SPEED, 10 * 1000,
+            int lavaLampSpeed = Settings.Secure.getIntForUser(resolver,
+                    Settings.Secure.PULSE_LAVALAMP_SOLID_SPEED, 10 * 1000,
                     UserHandle.USER_CURRENT);
             mLavaLamp.setAnimationTime(lavaLampSpeed);
-            if (mLavaLampEnabled && mIsValidStream) {
+            if (mLavaLampEnabled && mIsValidStream && !mPulseAccentColorEnabled) {
                 mLavaLamp.start();
             } else {
                 mLavaLamp.stop();
             }
             // putFloat, getFloat is better. catch it next time
-            mDbFuzzFactor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_SOLID_FUDGE_FACTOR, 3,
+            mDbFuzzFactor = Settings.Secure.getIntForUser(
+                    resolver, Settings.Secure.PULSE_SOLID_FUDGE_FACTOR, 5,
                     UserHandle.USER_CURRENT);
             mSmoothingEnabled = Settings.Secure.getIntForUser(resolver,
                     Settings.Secure.FLING_PULSE_SMOOTHING_ENABLED, 0, UserHandle.USER_CURRENT) == 1;
 
             int oldUnits = mUnits;
-            mUnits = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_SOLID_UNITS_COUNT, 96,
+            mUnits = Settings.Secure.getIntForUser(
+                    resolver, Settings.Secure.PULSE_SOLID_UNITS_COUNT, 64,
                     UserHandle.USER_CURRENT);
             if (mUnits != oldUnits) {
                 mFFTPoints = new float[mUnits * 4];
@@ -325,8 +341,8 @@ public class SolidLineRenderer extends Renderer implements ColorAnimator.ColorAn
                 mFFTAverage = null;
             }
 
-            int solidUnitsColor = Settings.System.getIntForUser(
-                    resolver, Settings.System.PULSE_SOLID_UNITS_OPACITY, 200,
+            int solidUnitsColor = Settings.Secure.getIntForUser(
+                    resolver, Settings.Secure.PULSE_SOLID_UNITS_OPACITY, 200,
                     UserHandle.USER_CURRENT);
             mFadePaint.setColor(Color.argb(mAutoColor ? 255 : solidUnitsColor, 255, 255, 255));
         }
