@@ -154,7 +154,7 @@ public class SolidLineRenderer extends Renderer {
 
     @Override
     public void onFFTUpdate(byte[] fft) {
-        int fudgeFactor = mKeyguardShowing ? mDbFuzzFactor * 4 : mDbFuzzFactor;
+        int fudgeFactor = mKeyguardShowing ? mDbFuzzFactor * 2 : mDbFuzzFactor;
         for (int i = 0; i < mUnits; i++) {
             mValueAnimators[i].cancel();
             rfk = fft[i * 2 + 2];

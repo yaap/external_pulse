@@ -85,7 +85,7 @@ public class FadingBlockRenderer extends Renderer {
 
     @Override
     public void onFFTUpdate(byte[] bytes) {
-        int fudgeFactor = mKeyguardShowing ? mDbFuzzFactor * 4 : mDbFuzzFactor;
+        int fudgeFactor = mKeyguardShowing ? mDbFuzzFactor * 2 : mDbFuzzFactor;
         mFFTBytes = bytes;
         if (mFFTBytes != null) {
             if (mFFTPoints == null || mFFTPoints.length < mFFTBytes.length * 4) {
