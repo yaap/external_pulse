@@ -117,10 +117,10 @@ public class PulseControllerImpl
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+            /*if (Intent.ACTION_SCREEN_OFF.equals(action)) {
                 mScreenOn = false;
                 doLinkage();
-            } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+            } else */if (Intent.ACTION_SCREEN_ON.equals(action)) {
                 mScreenOn = true;
                 doLinkage();
             } else if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGING.equals(intent.getAction())) {
@@ -192,7 +192,7 @@ public class PulseControllerImpl
             if (uri.equals(Settings.Secure.getUriFor(Settings.Secure.NAVBAR_PULSE_ENABLED))
                     || uri.equals(Settings.Secure.getUriFor(Settings.Secure.LOCKSCREEN_PULSE_ENABLED))) {
                 updateEnabled();
-                updatePulseVisibility();
+                updatePulseVisibility(false);
             } else if (uri.equals(Settings.Secure.getUriFor(Settings.Secure.PULSE_RENDER_STYLE))) {
                 updateRenderMode();
                 loadRenderer();
@@ -223,11 +223,16 @@ public class PulseControllerImpl
         }
     }
 
-    private void updatePulseVisibility() {
+    public void onStartedGoingToSleep() {
+        mScreenOn = false;
+        updatePulseVisibility(true);
+    }
+
+    private void updatePulseVisibility(boolean forceStop) {
         NavigationBarFrame nv = getNavbarFrame();
         VisualizerView vv = getLsVisualizer();
-        boolean allowLsPulse = allowLsPulse(vv);
-        boolean allowNavPulse = allowNavPulse(nv);
+        boolean allowLsPulse = !forceStop && allowLsPulse(vv);
+        boolean allowNavPulse = !forceStop && allowNavPulse(nv);
 
         if (!allowNavPulse) {
             detachPulseFrom(nv, allowLsPulse/*keep linked*/);
@@ -235,6 +240,8 @@ public class PulseControllerImpl
         if (!allowLsPulse) {
             detachPulseFrom(vv, allowNavPulse/*keep linked*/);
         }
+
+        if (forceStop) return;
 
         if (allowLsPulse) {
             attachPulseTo(vv);
@@ -246,7 +253,7 @@ public class PulseControllerImpl
     public void setDozing(boolean dozing) {
         if (mDozing != dozing) {
             mDozing = dozing;
-            updatePulseVisibility();
+            updatePulseVisibility(false);
         }
     }
 
@@ -256,7 +263,7 @@ public class PulseControllerImpl
             if (mRenderer != null) {
                 mRenderer.setKeyguardShowing(showing);
             }
-            updatePulseVisibility();
+            updatePulseVisibility(false);
         }
     }
 
